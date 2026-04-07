@@ -1,50 +1,80 @@
+# Stage 1: Build Node.js dependencies
+FROM node:18-slim AS node-builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Stage 2: Build Python dependencies
+FROM python:3.11-slim AS python-builder
+WORKDIR /app
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Stage 3: Final runtime image
 FROM node:18-slim
 
-# Install Python, pip, git, and supervisord
-RUN apt-get update && apt-get install -y \
-    python3 \
+# Install Python and runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
     python3-pip \
-    git \
-    build-essential \
     curl \
-    supervisor \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY requirements.txt ./
-
-# Install Node.js dependencies
-RUN npm install
-
-# Install Python dependencies with --break-system-packages
-RUN pip3 install --break-system-packages -r requirements.txt
+# Copy Node.js dependencies from builder
+COPY --from=node-builder /app/node_modules ./node_modules
+COPY --from=python-builder /root/.local /root/.local
 
 # Copy application files
 COPY . .
 
-# Create supervisord config
-RUN mkdir -p /var/log/supervisor && \
-    echo '[supervisord]\n\
-nodaemon=true\n\
-logfile=/var/log/supervisor/supervisord.log\n\
-\n\
-[program:whatsapp]\n\
-command=node /app/whatsapp_otp.js\n\
-autostart=true\n\
-autorestart=true\n\
-stderr_logfile=/var/log/supervisor/whatsapp.err.log\n\
-stdout_logfile=/var/log/supervisor/whatsapp.out.log\n\
-\n\
-[program:bot]\n\
-command=python3 /app/bot.py\n\
-autostart=true\n\
-autorestart=true\n\
-stderr_logfile=/var/log/supervisor/bot.err.log\n\
-stdout_logfile=/var/log/supervisor/bot.out.log\n\
-' > /etc/supervisor/conf.d/services.conf
+# Set Python path
+ENV PATH=/root/.local/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
+    NODE_ENV=production
 
-# Start supervisord
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+# Create startup script
+RUN cat > /app/start.sh << 'EOF'
+#!/bin/bash
+set -e
+
+echo "🚀 Starting Crack SMS v20 - Professional Edition"
+
+# Start WhatsApp bridge in background
+echo "📱 Starting WhatsApp OTP Bridge..."
+node /app/whatsapp_otp.js &
+WA_PID=$!
+
+# Wait for bridge to be healthy (max 30 seconds)
+echo "⏳ Waiting for WhatsApp bridge to be ready..."
+for i in {1..30}; do
+    if curl -s http://127.0.0.1:7891/health > /dev/null 2>&1; then
+        echo "✅ WhatsApp bridge is healthy"
+        break
+    fi
+    echo "  Attempt $i/30..."
+    sleep 1
+done
+
+# Start Python bot
+echo "🤖 Starting Telegram Bot..."
+python3 /app/bot.py &
+BOT_PID=$!
+
+# Handle signals
+trap "kill $WA_PID $BOT_PID 2>/dev/null || true" SIGTERM SIGINT
+
+# Wait for both processes
+wait $WA_PID $BOT_PID
+EOF
+
+RUN chmod +x /app/start.sh
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://127.0.0.1:7891/health || exit 1
+
+# Start both services
+CMD ["/app/start.sh"]
