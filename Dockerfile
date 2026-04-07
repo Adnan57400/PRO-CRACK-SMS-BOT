@@ -32,32 +32,32 @@ ENV PATH=/root/.local/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     NODE_ENV=production
 
-# Create startup script
+# Create startup script - START BOT.PY FIRST
 RUN cat > /app/start.sh << 'EOF'
 #!/bin/bash
 
 echo "🚀 Starting Crack SMS v20 - Professional Edition"
 
-# Start WhatsApp bridge in background
-echo "📱 Starting WhatsApp OTP Bridge..."
-node /app/whatsapp_otp.js &
-WA_PID=$!
-echo "WhatsApp bridge PID: $WA_PID"
-
-# Wait 3 seconds for bridge to initialize
-sleep 3
-
-# Start Python bot in background
+# Start Python bot FIRST
 echo "🤖 Starting Telegram Bot..."
 python3 /app/bot.py &
 BOT_PID=$!
 echo "Bot PID: $BOT_PID"
 
+# Wait 5 seconds for bot to initialize
+sleep 5
+
+# Then start WhatsApp bridge
+echo "📱 Starting WhatsApp OTP Bridge..."
+node /app/whatsapp_otp.js &
+WA_PID=$!
+echo "WhatsApp bridge PID: $WA_PID"
+
 # Handle signals
-trap "echo 'Shutting down...'; kill $WA_PID $BOT_PID 2>/dev/null; exit 0" SIGTERM SIGINT
+trap "echo 'Shutting down...'; kill $BOT_PID $WA_PID 2>/dev/null; exit 0" SIGTERM SIGINT
 
 # Keep container alive - wait for both processes
-while kill -0 $WA_PID 2>/dev/null || kill -0 $BOT_PID 2>/dev/null; do
+while kill -0 $BOT_PID 2>/dev/null || kill -0 $WA_PID 2>/dev/null; do
     sleep 1
 done
 
@@ -67,5 +67,5 @@ EOF
 
 RUN chmod +x /app/start.sh
 
-# Start both services - use exec to replace shell with script
+# Start both services
 CMD exec /app/start.sh
