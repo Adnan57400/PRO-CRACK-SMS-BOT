@@ -1,9 +1,12 @@
 FROM node:18-slim
 
-# Install Python and pip
+# Install Python, pip, git, and other build essentials
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
+    git \
+    build-essential \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
