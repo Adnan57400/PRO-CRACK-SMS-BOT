@@ -35,6 +35,7 @@ ENV PATH=/root/.local/bin:$PATH \
 # Create startup script - START BOT.PY FIRST
 RUN cat > /app/start.sh << 'EOF'
 #!/bin/bash
+set -x
 
 echo "🚀 Starting Crack SMS v20 - Professional Edition"
 
@@ -56,7 +57,7 @@ echo "WhatsApp bridge PID: $WA_PID"
 # Handle signals
 trap "echo 'Shutting down...'; kill $BOT_PID $WA_PID 2>/dev/null; exit 0" SIGTERM SIGINT
 
-# Keep container alive - wait for both processes
+# Keep container alive
 while kill -0 $BOT_PID 2>/dev/null || kill -0 $WA_PID 2>/dev/null; do
     sleep 1
 done
@@ -67,5 +68,5 @@ EOF
 
 RUN chmod +x /app/start.sh
 
-# Start both services
-CMD exec /app/start.sh
+# Use ENTRYPOINT instead of CMD
+ENTRYPOINT ["/app/start.sh"]
