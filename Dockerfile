@@ -18,8 +18,8 @@ COPY requirements.txt ./
 # Install Node.js dependencies
 RUN npm install
 
-# Install Python dependencies
-RUN pip3 install -r requirements.txt
+# Install Python dependencies with --break-system-packages
+RUN pip3 install --break-system-packages -r requirements.txt
 
 # Copy application files
 COPY . .
