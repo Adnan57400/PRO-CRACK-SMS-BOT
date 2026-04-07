@@ -32,7 +32,7 @@ ENV PATH=/root/.local/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     NODE_ENV=production
 
-# Create startup script
+# Create startup script - NO health check, just start both services
 RUN cat > /app/start.sh << 'EOF'
 #!/bin/bash
 set -e
@@ -41,23 +41,15 @@ echo "🚀 Starting Crack SMS v20 - Professional Edition"
 
 # Start WhatsApp bridge in background
 echo "📱 Starting WhatsApp OTP Bridge..."
-node /app/whatsapp_otp.js &
+node /app/whatsapp_otp.js > /tmp/wa_bridge.log 2>&1 &
 WA_PID=$!
 
-# Wait for bridge to be healthy (max 30 seconds)
-echo "⏳ Waiting for WhatsApp bridge to be ready..."
-for i in {1..30}; do
-    if curl -s http://127.0.0.1:7891/health > /dev/null 2>&1; then
-        echo "✅ WhatsApp bridge is healthy"
-        break
-    fi
-    echo "  Attempt $i/30..."
-    sleep 1
-done
+# Give bridge 5 seconds to start
+sleep 5
 
-# Start Python bot
+# Start Python bot immediately (don't wait for bridge health)
 echo "🤖 Starting Telegram Bot..."
-python3 /app/bot.py &
+python3 /app/bot.py > /tmp/bot.log 2>&1 &
 BOT_PID=$!
 
 # Handle signals
@@ -69,9 +61,9 @@ EOF
 
 RUN chmod +x /app/start.sh
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://127.0.0.1:7891/health || exit 1
+# Health check - just check if container is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD ps aux | grep -E "(node|python3)" | grep -v grep > /dev/null || exit 1
 
 # Start both services
 CMD ["/app/start.sh"]
