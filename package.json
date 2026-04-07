@@ -1,0 +1,22 @@
+{
+  "name": "crack-sms-wa-bridge",
+  "version": "3.0.0",
+  "description": "Crack SMS v20 WhatsApp OTP Bridge - Professional Edition with Phone/Code/QR Pairing",
+  "main": "whatsapp_otp.js",
+  "scripts": {
+    "start": "node whatsapp_otp.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.16",
+    "@hapi/boom": "^10.0.1",
+    "axios": "^1.7.9",
+    "chalk": "^4.1.2",
+    "fs-extra": "^11.2.0",
+    "node-cache": "^5.1.2",
+    "pino": "^9.6.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
