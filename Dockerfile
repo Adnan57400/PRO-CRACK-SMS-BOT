@@ -24,5 +24,15 @@ RUN pip3 install --break-system-packages -r requirements.txt
 # Copy application files
 COPY . .
 
+# Create startup script
+RUN echo '#!/bin/sh\n\
+echo "🚀 Starting WhatsApp bridge..."\n\
+node whatsapp_otp.js > /tmp/wa.log 2>&1 &\n\
+sleep 2\n\
+echo "🚀 Starting Telegram bot..."\n\
+python3 bot.py > /tmp/bot.log 2>&1 &\n\
+wait\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
 # Start both services
-CMD node whatsapp_otp.js & python3 bot.py
+CMD ["/bin/sh", "/app/start.sh"]
