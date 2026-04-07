@@ -32,38 +32,40 @@ ENV PATH=/root/.local/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     NODE_ENV=production
 
-# Create startup script - NO health check, just start both services
+# Create startup script
 RUN cat > /app/start.sh << 'EOF'
 #!/bin/bash
-set -e
 
 echo "🚀 Starting Crack SMS v20 - Professional Edition"
 
 # Start WhatsApp bridge in background
 echo "📱 Starting WhatsApp OTP Bridge..."
-node /app/whatsapp_otp.js > /tmp/wa_bridge.log 2>&1 &
+node /app/whatsapp_otp.js &
 WA_PID=$!
+echo "WhatsApp bridge PID: $WA_PID"
 
-# Give bridge 5 seconds to start
-sleep 5
+# Wait 3 seconds for bridge to initialize
+sleep 3
 
-# Start Python bot immediately (don't wait for bridge health)
+# Start Python bot in background
 echo "🤖 Starting Telegram Bot..."
-python3 /app/bot.py > /tmp/bot.log 2>&1 &
+python3 /app/bot.py &
 BOT_PID=$!
+echo "Bot PID: $BOT_PID"
 
 # Handle signals
-trap "kill $WA_PID $BOT_PID 2>/dev/null || true" SIGTERM SIGINT
+trap "echo 'Shutting down...'; kill $WA_PID $BOT_PID 2>/dev/null; exit 0" SIGTERM SIGINT
 
-# Wait for both processes
-wait $WA_PID $BOT_PID
+# Keep container alive - wait for both processes
+while kill -0 $WA_PID 2>/dev/null || kill -0 $BOT_PID 2>/dev/null; do
+    sleep 1
+done
+
+echo "Both services stopped"
+exit 0
 EOF
 
 RUN chmod +x /app/start.sh
 
-# Health check - just check if container is running
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD ps aux | grep -E "(node|python3)" | grep -v grep > /dev/null || exit 1
-
 # Start both services
-CMD ["/app/start.sh"]
+CMD ["/bin/bash", "/app/start.sh"]
