@@ -1,5 +1,6 @@
 # Stage 1: Build Node.js dependencies
 FROM node:18-slim AS node-builder
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package*.json ./
 RUN npm install --omit=dev
