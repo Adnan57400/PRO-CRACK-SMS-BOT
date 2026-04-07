@@ -67,5 +67,5 @@ EOF
 
 RUN chmod +x /app/start.sh
 
-# Start both services
-CMD ["/bin/bash", "/app/start.sh"]
+# Start both services - use exec to replace shell with script
+CMD exec /app/start.sh
