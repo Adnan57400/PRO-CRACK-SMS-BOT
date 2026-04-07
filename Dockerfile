@@ -1,32 +1,28 @@
-# Stage 1: Build Node.js dependencies
-FROM node:18-slim AS node-builder
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
-WORKDIR /app
-COPY package*.json ./
-RUN npm install --omit=dev
-
-# Stage 2: Build Python dependencies
-FROM python:3.11-slim AS python-builder
-WORKDIR /app
-COPY requirements.txt ./
-RUN pip install --no-cache-dir --user -r requirements.txt
-
-# Stage 3: Final runtime image
 FROM node:18-slim
 
-# Install Python and runtime dependencies
+# Install Python, git, and other dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11 \
     python3-pip \
     curl \
     ca-certificates \
+    git \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy Node.js dependencies from builder
-COPY --from=node-builder /app/node_modules ./node_modules
-COPY --from=python-builder /root/.local /root/.local
+# Configure git to use HTTPS instead of SSH
+RUN git config --global url."https://github.com/".insteadOf git://github.com/ && \
+    git config --global url."https://".insteadOf git://
+
+# Copy and install Node.js dependencies
+COPY package*.json ./
+RUN npm install --omit=dev --no-optional
+
+# Copy and install Python dependencies
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Copy application files
 COPY . .
