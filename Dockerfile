@@ -69,4 +69,4 @@ EOF
 RUN chmod +x /app/start.sh
 
 # Use ENTRYPOINT instead of CMD
-ENTRYPOINT ["/app/start.sh"]
+ENTRYPOINT /app/start.sh
