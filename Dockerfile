@@ -2,7 +2,7 @@
 FROM node:18-slim AS node-builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Stage 2: Build Python dependencies
 FROM python:3.11-slim AS python-builder
