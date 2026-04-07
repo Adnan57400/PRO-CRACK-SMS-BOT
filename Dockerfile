@@ -22,7 +22,7 @@ RUN npm install --omit=dev --no-optional
 
 # Copy and install Python dependencies
 COPY requirements.txt ./
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Copy application files
 COPY . .
